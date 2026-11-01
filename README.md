@@ -1,425 +1,706 @@
 # RepoMind
 
-**Understand any codebase. Investigate with evidence. Plan changes with
-confidence.**
+### Understand any codebase. Investigate with evidence. Plan changes with confidence.
 
-RepoMind is an AI-powered codebase understanding and engineering
-assistant that helps developers explore unfamiliar GitHub repositories,
-ask questions grounded in source code, and prepare implementation plans
-and patches for human review.
+RepoMind is an AI-powered codebase understanding and engineering assistant that helps developers explore unfamiliar GitHub repositories, understand code architecture, ask questions grounded in source code, and generate implementation plans and patch proposals for human review.
 
-> **Product principle:** AI explains, investigates, and proposes. Humans
-> review, choose, and approve.
+> **Product principle:** AI explains, investigates, and proposes. Humans review, choose, and approve.
 
-RepoMind is currently in the planning / early implementation stage. The
-architecture and documentation describe the intended MVP; not all
-features are implemented yet.
+---
 
-## Contents
+## Table of Contents
 
--   [Why RepoMind?](#why-repomind)
--   [MVP Features](#mvp-features)
--   [Planned Architecture](#planned-architecture)
--   [Technology Stack](#technology-stack)
--   [Repository Structure](#repository-structure)
--   [Getting Started](#getting-started)
--   [Environment Configuration](#environment-configuration)
--   [Development Workflow](#development-workflow)
--   [Security](#security)
--   [Roadmap](#roadmap)
--   [Project Documentation](#project-documentation)
--   [Contributing](#contributing)
--   [License](#license)
+- [Why RepoMind?](#why-repomind)
+- [Core Features](#core-features)
+- [System Architecture](#system-architecture)
+- [Technology Stack](#technology-stack)
+- [Repository Structure](#repository-structure)
+- [Getting Started](#getting-started)
+- [Environment Configuration](#environment-configuration)
+- [Application Architecture](#application-architecture)
+- [Database Design](#database-design)
+- [Development Workflow](#development-workflow)
+- [Security](#security)
+- [Roadmap](#roadmap)
+- [Contributing](#contributing)
+- [License](#license)
+
+---
 
 ## Why RepoMind?
 
-Understanding an unfamiliar codebase takes time. Developers need to
-locate entry points, trace dependencies, learn how modules interact, and
-estimate the impact of changes. Generic AI answers may be inaccurate or
-disconnected from the actual repository.
+Understanding an unfamiliar codebase is time-consuming.
 
-RepoMind aims to make this work easier by combining repository indexing,
-source-grounded Q&A, and human-reviewed change proposals.
+Developers often need to:
 
-### Who is it for?
+- Understand unfamiliar project structures.
+- Identify application entry points.
+- Trace dependencies between modules.
+- Understand API endpoints and database interactions.
+- Investigate bugs and potential causes.
+- Identify files affected by a new feature.
+- Understand architectural decisions.
 
--   Developers onboarding to an existing codebase.
--   Junior and mid-level engineers exploring unfamiliar systems.
--   Developers investigating bugs or planning features.
--   Engineers seeking evidence-backed code explanations and optimization
-    ideas.
--   Later: teams collaborating on codebase exploration and interview
-    practice.
+Generic AI assistants often provide explanations without sufficient evidence from the actual repository.
 
-## MVP Features
+RepoMind addresses this problem through repository indexing, retrieval-augmented generation (RAG), source-grounded AI conversations, and human-reviewed code change proposals.
 
-The intended MVP includes:
+### Target Users
 
--   **GitHub integration:** connect authorized public and private
-    repositories.
--   **Repository indexing:** process source files asynchronously against
-    a pinned commit.
--   **Codebase explorer:** browse the file tree, source files, and
-    repository overview.
--   **AI codebase Q&A:** ask questions and receive answers with
-    verifiable file and line references.
--   **Feature planning:** identify likely affected files, trade-offs,
-    risks, and tests.
--   **Patch proposals:** generate changes for review without applying
-    them automatically.
--   **Revision awareness:** keep answers and proposals tied to a
-    specific commit.
--   **Reliable processing:** indexing status, retries, failure
-    reporting, and re-indexing.
--   **Security controls:** authorization checks, secret handling,
-    prompt-injection defenses, and deletion workflows.
+- Developers onboarding to unfamiliar codebases.
+- Junior and mid-level software engineers.
+- Open-source contributors.
+- Developers investigating bugs and planning features.
+- Engineers exploring complex software architectures.
 
-### Explicitly out of scope for the MVP
+---
 
--   Automatic commits, pushes, or pull requests.
--   Running repository scripts or tests on application infrastructure.
--   Autonomous code changes without human review.
--   Team collaboration and shared workspaces.
--   Enterprise SSO and multi-repository reasoning.
+## Core Features
 
-These features may be considered after the core workflow is reliable.
+### 1. GitHub Integration
+- Connect public and private GitHub repositories.
+- Retrieve repository metadata.
+- Access authorized source code.
+- Track repository revisions.
 
-## Planned Architecture
+### 2. Repository Intelligence
+- Analyze repository structures.
+- Identify important files and entry points.
+- Understand module relationships.
+- Index repository source code.
 
-``` mermaid
+### 3. AI Codebase Q&A
+- Ask natural-language questions about a repository.
+- Generate context-aware explanations.
+- Retrieve relevant source code.
+- Provide file paths and line references as evidence.
+
+### 4. Repository Explorer
+- Browse repository file structures.
+- View source code.
+- Explore repository metadata.
+- Understand project organization.
+
+### 5. Feature Planning
+- Identify potentially affected files.
+- Generate implementation plans.
+- Explain architectural trade-offs.
+- Suggest relevant tests and potential risks.
+
+### 6. Patch Proposals
+- Generate proposed code modifications.
+- Preview changes.
+- Review proposed patches.
+- Require explicit human approval.
+
+---
+
+## System Architecture
+
+RepoMind follows a modular monorepo architecture with separate client, server, database, and infrastructure responsibilities.
+
+```mermaid
 flowchart TD
-    UI[React + TypeScript frontend] --> API[Node.js + Express API]
+    USER[Developer] --> CLIENT[React Client]
+
+    CLIENT --> API[Express API Server]
+
+    API --> AUTH[Authentication]
     API --> DB[(PostgreSQL + pgvector)]
     API --> GH[GitHub API]
-    API --> Q[Background job queue]
-    Q --> W[Repository indexing worker]
-    W --> GH
-    W --> DB
-    API --> AI[Python + FastAPI AI service]
-    AI --> DB
-    AI --> LLM[LLM provider adapter]
+    API --> REDIS[(Redis Queue)]
+
+    REDIS --> WORKER[Background Indexing Worker]
+
+    WORKER --> GH
+    WORKER --> AI[FastAPI AI Service]
+
+    AI --> RAG[RAG Pipeline]
+    AI --> EMB[Embedding Service]
+    AI --> LLM[LLM Provider]
+
+    RAG --> DB
+    EMB --> DB
+
+    API --> AI
+    AI --> API
+    API --> CLIENT
 ```
 
-### Components
+### Architectural Components
 
-  -----------------------------------------------------------------------
-  Component                           Responsibility
-  ----------------------------------- -----------------------------------
-  React + TypeScript                  Repository dashboard, file
-                                      explorer, chat, citations, and
-                                      patch review
+| Component | Responsibility |
+|---|---|
+| Client | User interface and application interactions |
+| API Server | Authentication, authorization, business logic and REST APIs |
+| AI Service | RAG, embeddings, retrieval and LLM orchestration |
+| Background Worker | Repository synchronization and indexing |
+| Database | Application data, repository metadata and vector storage |
+| Redis | Background job queue |
+| GitHub API | Repository access and source retrieval |
 
-  Node.js + Express                   Public API, authentication,
-                                      authorization, GitHub integration,
-                                      and application logic
+**Architecture principle:** The Express API acts as the application's public control plane. The browser never directly accesses PostgreSQL, Redis, internal AI services, or private provider credentials.
 
-  PostgreSQL + pgvector               Application data, revision
-                                      metadata, code chunks, and vector
-                                      retrieval
-
-  Python + FastAPI                    Code analysis, retrieval, AI
-                                      orchestration, structured output
-                                      validation, and evaluation
-
-  Indexing worker                     Fetch, filter, parse, chunk, embed,
-                                      and index repository revisions
-
-  Job queue                           Asynchronous processing, retries,
-                                      and recovery
-
-  GitHub API                          Authorized repository metadata and
-                                      source access
-
-  LLM adapter                         Provider-independent chat and
-                                      embedding integration
-  -----------------------------------------------------------------------
-
-The application API is the public control plane. The browser must not
-connect directly to the database, internal AI service, or private model
-provider credentials.
+---
 
 ## Technology Stack
 
-  -----------------------------------------------------------------------
-  Area                                Planned technology
-  ----------------------------------- -----------------------------------
-  Frontend                            React, TypeScript, Vite, Tailwind
-                                      CSS
+| Layer | Technology |
+|---|---|
+| Frontend | React, TypeScript, Vite |
+| Styling | Tailwind CSS |
+| Backend | Node.js, Express, TypeScript |
+| AI Backend | Python, FastAPI |
+| AI Architecture | RAG, LLMs, Embeddings |
+| Database | PostgreSQL |
+| Vector Database | pgvector |
+| Background Jobs | BullMQ |
+| Queue | Redis |
+| Source Control | Git, GitHub API |
+| Validation | Zod, Pydantic |
+| Frontend Testing | Vitest, Playwright |
+| Backend Testing | Vitest |
+| AI Testing | Pytest |
+| Infrastructure | Docker, Docker Compose |
+| Monorepo | pnpm Workspaces, Turborepo |
 
-  Application API                     Node.js, Express, TypeScript
-
-  AI service                          Python, FastAPI
-
-  Database                            PostgreSQL, pgvector
-
-  Background jobs                     Queue-backed worker; Redis/BullMQ
-                                      is a candidate
-
-  Source control                      Git and GitHub
-
-  Validation                          Runtime schemas and typed contracts
-
-  Testing                             Unit tests, API integration tests,
-                                      AI evaluation, Playwright E2E
-
-  Deployment                          Frontend and backend hosting
-                                      selected during implementation
-  -----------------------------------------------------------------------
-
-Specific versions and providers will be pinned in the project
-configuration as implementation begins.
+---
 
 ## Repository Structure
 
-The intended monorepo layout is:
+RepoMind uses a monorepo structure to maintain clear boundaries between application components.
 
-``` text
+```text
 repomind/
-├── apps/
-│   └── web/                    # React + TypeScript frontend
-├── services/
-│   ├── api/                    # Node.js + Express application API
-│   └── ai/                     # Python + FastAPI AI service
-├── workers/
-│   └── indexer/                # Asynchronous repository indexing
-├── packages/
-│   ├── contracts/              # Shared request/response schemas
-│   ├── config/                 # Shared development configuration
-│   └── api-client/             # Typed frontend API client
-├── db/
+│
+├── client/                         # React frontend
+│   ├── public/
+│   ├── src/
+│   │   ├── assets/
+│   │   ├── components/
+│   │   │   ├── ui/
+│   │   │   ├── layout/
+│   │   │   └── shared/
+│   │   ├── features/
+│   │   │   ├── auth/
+│   │   │   ├── dashboard/
+│   │   │   ├── repositories/
+│   │   │   ├── code-explorer/
+│   │   │   ├── ai-chat/
+│   │   │   └── patch-review/
+│   │   ├── hooks/
+│   │   ├── lib/
+│   │   ├── services/
+│   │   ├── stores/
+│   │   ├── types/
+│   │   └── utils/
+│   ├── tests/
+│   ├── package.json
+│   └── vite.config.ts
+│
+├── server/                          # Backend services
+│   │
+│   ├── api/                         # Express REST API
+│   │   ├── src/
+│   │   │   ├── config/
+│   │   │   ├── modules/
+│   │   │   │   ├── auth/
+│   │   │   │   ├── users/
+│   │   │   │   ├── github/
+│   │   │   │   ├── repositories/
+│   │   │   │   ├── indexing/
+│   │   │   │   ├── conversations/
+│   │   │   │   ├── ai/
+│   │   │   │   └── proposals/
+│   │   │   ├── middleware/
+│   │   │   ├── integrations/
+│   │   │   ├── database/
+│   │   │   ├── queues/
+│   │   │   ├── routes/
+│   │   │   ├── utils/
+│   │   │   ├── app.ts
+│   │   │   └── server.ts
+│   │   ├── tests/
+│   │   └── package.json
+│   │
+│   ├── ai/                          # Python FastAPI service
+│   │   ├── app/
+│   │   │   ├── api/
+│   │   │   ├── core/
+│   │   │   ├── agents/
+│   │   │   ├── rag/
+│   │   │   ├── embeddings/
+│   │   │   ├── retrieval/
+│   │   │   ├── llm/
+│   │   │   ├── prompts/
+│   │   │   ├── schemas/
+│   │   │   ├── services/
+│   │   │   └── main.py
+│   │   ├── tests/
+│   │   ├── requirements.txt
+│   │   └── pyproject.toml
+│   │
+│   └── workers/                     # Background workers
+│       ├── src/
+│       │   ├── jobs/
+│       │   ├── processors/
+│       │   ├── queues/
+│       │   ├── services/
+│       │   └── worker.ts
+│       ├── tests/
+│       └── package.json
+│
+├── database/                        # Database management
 │   ├── migrations/
+│   ├── schemas/
 │   ├── seeds/
-│   └── tests/
+│   ├── extensions/
+│   ├── functions/
+│   ├── tests/
+│   └── README.md
+│
+├── packages/                        # Shared packages
+│   ├── contracts/
+│   ├── api-client/
+│   └── config/
+│
+├── infrastructure/
+│   ├── docker/
+│   ├── docker-compose.yml
+│   └── scripts/
+│
 ├── docs/
-├── PRD.md
-├── ARCHITECTURE.md
-├── DATABASE.md
-├── API.md
-├── SECURITY.md
+│   ├── PRD.md
+│   ├── ARCHITECTURE.md
+│   ├── DATABASE.md
+│   ├── API.md
+│   └── SECURITY.md
+│
+├── .github/
+│   └── workflows/
+│
+├── .env.example
+├── .gitignore
+├── package.json
+├── pnpm-workspace.yaml
+├── turbo.json
 └── README.md
 ```
 
-Directories may be introduced incrementally as their corresponding
-implementation phases begin.
+### Directory Responsibilities
+
+| Directory | Responsibility |
+|---|---|
+| `client/` | Frontend application |
+| `server/api/` | REST API and business logic |
+| `server/ai/` | AI processing and RAG |
+| `server/workers/` | Asynchronous processing |
+| `database/` | SQL migrations and database tests |
+| `packages/` | Shared contracts and utilities |
+| `infrastructure/` | Docker and deployment configuration |
+| `docs/` | Technical and product documentation |
+
+---
 
 ## Getting Started
-
-### Current status
-
-The project is currently at the documentation and architecture baseline.
-The commands below describe the intended development setup; they will
-become runnable once the corresponding package files, services, and
-migrations are implemented.
 
 ### Prerequisites
 
 Install the following tools:
 
--   Git
--   Node.js LTS and pnpm
--   Python version selected in the AI service configuration
--   PostgreSQL with pgvector support
--   Redis, if BullMQ is selected for the queue
--   GitHub OAuth/App credentials for integration testing
--   An API key for the selected LLM provider
+- Git
+- Node.js LTS
+- pnpm
+- Python 3.11+
+- PostgreSQL with pgvector
+- Redis
+- Docker and Docker Compose
+- GitHub OAuth/App credentials
+- LLM provider API credentials
 
-### 1. Clone the repository
+### 1. Clone Repository
 
-``` bash
+```bash
 git clone <YOUR_GITHUB_REPOSITORY_URL>
+
 cd repomind
 ```
 
-Replace the placeholder with the actual repository URL.
+### 2. Install Dependencies
 
-### 2. Configure environment variables
+Install JavaScript workspace dependencies:
 
-Copy `.env.example` to the appropriate local environment files and
-populate local development values.
+```bash
+pnpm install
+```
 
-Do not commit `.env` files or real credentials. The root example should
-contain placeholders only.
+Install Python AI service dependencies:
 
-### 3. Start infrastructure
+```bash
+cd server/ai
 
-Start PostgreSQL with pgvector enabled. If Redis/BullMQ is selected,
-start Redis as well. Docker Compose may be added to simplify local
-development.
+python -m venv .venv
+```
 
-### 4. Install dependencies
+Activate the environment:
 
-Once the workspace manifests are present, install JavaScript
-dependencies using the repository's pinned package manager and install
-Python dependencies using the AI service's documented workflow.
+Windows:
 
-### 5. Apply database migrations
+```powershell
+.venv\Scripts\activate
+```
 
-Run the versioned migrations after they are implemented. Confirm that a
-clean database can be created from scratch.
+Linux/macOS:
 
-### 6. Start services
+```bash
+source .venv/bin/activate
+```
 
-The eventual local development workflow will run:
+Install dependencies:
 
--   The React development server.
--   The Express API.
--   The FastAPI AI service.
--   The indexing worker.
--   PostgreSQL and the job queue.
+```bash
+pip install -r requirements.txt
+```
 
-Use the commands defined in the root scripts and each service's
-documentation once they exist.
+### 3. Configure Environment Variables
 
-> **Note:** This README intentionally does not invent runnable scripts
-> or claim the application is already implemented. Update this section
-> as each phase is delivered.
+Create local environment configuration from the example:
+
+```bash
+cp .env.example .env
+```
+
+On Windows PowerShell:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Configure the required credentials.
+
+### 4. Start Infrastructure
+
+Start PostgreSQL and Redis using Docker Compose:
+
+```bash
+docker compose -f infrastructure/docker-compose.yml up -d
+```
+
+Ensure PostgreSQL has the pgvector extension enabled.
+
+### 5. Run Database Migrations
+
+Run the migration commands defined by the project's database migration tooling.
+
+Verify that all required tables and indexes have been created.
+
+### 6. Start Development Services
+
+Start the individual services using the scripts configured in their respective package manifests.
+
+Development services:
+
+- React frontend
+- Express API
+- Python FastAPI service
+- Background indexing worker
+- PostgreSQL
+- Redis
+
+**Note:** This repository structure describes the intended architecture. Commands and features become available as their implementation is completed. Check each service's package scripts before running it.
+
+---
 
 ## Environment Configuration
 
-The final configuration will be documented in `.env.example`. Expected
-configuration categories include:
+The root `.env.example` should document the environment variables required by the backend and infrastructure.
 
-  -----------------------------------------------------------------------
-  Category                            Example variable names
-  ----------------------------------- -----------------------------------
-  Application                         `NODE_ENV`, `APP_URL`, `API_PORT`
+Example:
 
-  Database                            `DATABASE_URL`, `DATABASE_POOL_MAX`
+```env
+# Application
+NODE_ENV=development
+APP_URL=http://localhost:5173
+API_PORT=5000
 
-  Authentication                      `SESSION_SECRET`, session cookie
-                                      settings
+# Database
+DATABASE_URL=postgresql://user:password@localhost:5432/repomind
+DATABASE_POOL_MAX=10
 
-  GitHub                              `GITHUB_CLIENT_ID`,
-                                      `GITHUB_CLIENT_SECRET`, callback
-                                      URL
+# Authentication
+SESSION_SECRET=replace_with_secure_secret
 
-  Internal AI service                 `AI_SERVICE_URL`,
-                                      `AI_SERVICE_TOKEN`
+# GitHub
+GITHUB_CLIENT_ID=
+GITHUB_CLIENT_SECRET=
+GITHUB_CALLBACK_URL=http://localhost:5000/api/v1/github/callback
 
-  Queue                               `REDIS_URL`
+# AI Service
+AI_SERVICE_URL=http://localhost:8000
+AI_SERVICE_TOKEN=
 
-  Model provider                      `LLM_PROVIDER`, `LLM_MODEL`,
-                                      `LLM_API_KEY`
+# LLM
+LLM_PROVIDER=
+LLM_MODEL=
+LLM_API_KEY=
 
-  Embeddings                          `EMBEDDING_PROVIDER`,
-                                      `EMBEDDING_MODEL`,
-                                      `EMBEDDING_DIMENSIONS`
+# Embeddings
+EMBEDDING_PROVIDER=
+EMBEDDING_MODEL=
+EMBEDDING_DIMENSIONS=
 
-  Observability                       `LOG_LEVEL`
-  -----------------------------------------------------------------------
+# Redis
+REDIS_URL=redis://localhost:6379
 
-Only public configuration belongs in frontend variables. Never expose
-GitHub client secrets, session secrets, database credentials, internal
-service tokens, or private model API keys in browser code.
+# Logging
+LOG_LEVEL=debug
+```
+
+Use separate environment files or secret-management configuration for individual services when appropriate.
+
+**Security:** Never commit real credentials, API keys, database passwords, or session secrets.
+
+Only public configuration should be exposed to the frontend.
+
+---
+
+## Application Architecture
+
+### Client Architecture
+
+The frontend uses a feature-based architecture.
+
+Each feature should manage its own components, hooks, API interactions, and types where appropriate.
+
+Example:
+
+```text
+client/src/features/repositories/
+
+├── components/
+├── hooks/
+├── services/
+├── types/
+└── index.ts
+```
+
+### API Server Architecture
+
+The Express application follows a modular layered architecture.
+
+Example:
+
+```text
+server/api/src/modules/repositories/
+
+├── repositories.routes.ts
+├── repositories.controller.ts
+├── repositories.service.ts
+├── repositories.repository.ts
+├── repositories.validation.ts
+├── repositories.types.ts
+└── repositories.test.ts
+```
+
+Responsibilities:
+
+- Routes: HTTP endpoint definitions.
+- Controllers: Request and response handling.
+- Services: Business logic.
+- Repositories: Database access.
+- Validation: Input validation.
+- Tests: Automated verification.
+
+### AI Service Architecture
+
+The Python service handles:
+
+- Repository context processing.
+- Code chunking.
+- Embedding generation.
+- Semantic retrieval.
+- RAG orchestration.
+- LLM provider integration.
+- Structured AI responses.
+- Citation validation.
+
+### Background Worker Architecture
+
+Workers handle long-running tasks outside the request-response lifecycle.
+
+Examples:
+
+- Repository synchronization.
+- Commit-based indexing.
+- File processing.
+- Embedding generation.
+- Failed job retries.
+- Cleanup operations.
+
+---
+
+## Database Design
+
+RepoMind uses PostgreSQL as its primary database and pgvector for semantic code retrieval.
+
+### Core Tables
+
+| Table | Description |
+|---|---|
+| users | Application users |
+| github_accounts | GitHub account connections |
+| repositories | Connected repositories |
+| repository_revisions | Repository commit metadata |
+| repository_files | Indexed source files |
+| document_chunks | Code chunks and embeddings |
+| indexing_jobs | Repository indexing jobs |
+| conversations | AI conversations |
+| messages | Conversation messages |
+| patch_proposals | Proposed code modifications |
+
+### Database Engineering Principles
+
+- Use UUID primary keys where appropriate.
+- Define foreign key relationships.
+- Add indexes for frequently queried columns.
+- Use pgvector indexes for embedding retrieval.
+- Maintain schema changes through versioned migrations.
+- Track repository revisions using immutable commit SHAs.
+- Enforce user-level data isolation.
+- Keep database credentials on the server.
+
+See [DATABASE.md](docs/DATABASE.md) for the detailed schema and relationships.
+
+---
 
 ## Development Workflow
 
-RepoMind is planned to be delivered in eight phases:
+RepoMind will be developed in incremental phases.
 
-1.  **Foundation:** product documentation, monorepo, service skeletons,
-    migrations, and CI.
-2.  **Identity and GitHub:** authentication, authorization, repository
-    selection, and connection lifecycle.
-3.  **Indexing:** commit-pinned ingestion, parsing, chunking,
-    embeddings, and recoverable jobs.
-4.  **Explorer:** file tree, source viewer, and repository overview.
-5.  **AI Q&A:** hybrid retrieval, verifiable citations, and answer
-    evaluation.
-6.  **Change proposals:** implementation plans, patch previews, and
-    human review.
-7.  **Hardening:** security tests, failure recovery, observability, and
-    cost controls.
-8.  **Deployment:** production hosting, monitoring, documentation, and
-    developer feedback.
+| Phase | Work |
+|---|---|
+| 1 | Monorepo foundation and infrastructure |
+| 2 | Database schema and migrations |
+| 3 | Authentication and GitHub integration |
+| 4 | Repository management and explorer |
+| 5 | Repository indexing pipeline |
+| 6 | AI-powered codebase Q&A |
+| 7 | Feature planning and patch proposals |
+| 8 | Testing, security and deployment |
 
-### Engineering principles
+### Engineering Principles
 
--   Plan and review before generating large code changes.
--   Keep changes small and testable.
--   Use versioned database migrations.
--   Pin source references to a commit SHA.
--   Treat repository content as untrusted input.
--   Validate model outputs and source citations.
--   Distinguish proposed tests from tests actually executed.
--   Never claim a test passed unless it was run and passed.
--   Require human review for all generated patches in the MVP.
+1. Keep modules independent and maintainable.
+2. Use TypeScript for frontend and Node.js services.
+3. Use Python for AI-specific processing.
+4. Keep database queries outside controllers.
+5. Use asynchronous jobs for expensive indexing tasks.
+6. Pin all repository analysis to a specific commit SHA.
+7. Validate all external inputs and model outputs.
+8. Treat repository source code as untrusted input.
+9. Write automated tests for important workflows.
+10. Require human approval for generated code modifications.
+
+---
 
 ## Security
 
-RepoMind may process private source code, so security is a core
-requirement.
+Security is a core requirement because RepoMind may process private source code.
 
--   Request the minimum GitHub permissions needed for repository
-    analysis.
--   Enforce authorization on every repository, file, job, conversation,
-    citation, and proposal request.
--   Encrypt stored credentials and keep encryption keys outside the
-    database.
--   Keep secrets out of logs, browser bundles, and model prompts.
--   Treat repository files and retrieved chunks as untrusted data to
-    defend against prompt injection.
--   Do not execute repository code in the MVP.
--   Pin answers and proposals to immutable revisions.
--   Apply request limits, timeouts, quotas, and bounded retries.
--   Define a deletion and retention policy for source-derived data and
-    external provider processing.
+### Security Measures
 
-See [SECURITY.md](SECURITY.md) for the security baseline and release
-checklist.
+- GitHub OAuth with minimum required permissions.
+- Secure session and token management.
+- Authorization checks for every repository operation.
+- Encrypted storage for sensitive credentials.
+- Internal authentication between API and AI service.
+- Prompt injection protection.
+- Input validation and request rate limiting.
+- No automatic execution of repository scripts.
+- No automatic commits or pushes.
+- Commit-pinned code citations.
+- Defined source-code retention and deletion policies.
+
+See [SECURITY.md](docs/SECURITY.md) for the security architecture.
+
+---
 
 ## Roadmap
 
-### Near term
+### Foundation
+- [ ] Establish monorepo structure.
+- [ ] Configure pnpm workspaces.
+- [ ] Configure Docker infrastructure.
+- [ ] Set up PostgreSQL and pgvector.
+- [ ] Create database migrations.
+- [ ] Establish API and AI service skeletons.
 
--   Complete the development foundation.
--   Implement secure authentication and GitHub connection.
--   Build reliable commit-pinned indexing.
--   Deliver source-grounded codebase Q&A.
--   Add reviewed implementation plans and patch previews.
+### Core Application
+- [ ] Implement user authentication.
+- [ ] Implement GitHub integration.
+- [ ] Connect repositories.
+- [ ] Build repository explorer.
+- [ ] Implement background indexing.
 
-### Future possibilities
+### AI Intelligence
+- [ ] Implement code chunking.
+- [ ] Integrate embedding models.
+- [ ] Build semantic retrieval.
+- [ ] Implement RAG pipeline.
+- [ ] Build source-grounded AI chat.
+- [ ] Add file and line citations.
 
--   Shared workspaces and team collaboration.
--   Collaborative interview practice and structured technical sessions.
--   Sandboxed test execution.
--   Explicitly approved branch or pull-request creation.
--   Architecture graphs and cross-repository analysis.
+### Engineering Assistant
+- [ ] Generate feature implementation plans.
+- [ ] Identify affected files.
+- [ ] Generate patch proposals.
+- [ ] Build patch review interface.
+- [ ] Add automated evaluation.
 
-Future items are exploratory and are not part of the MVP commitment.
+### Production Readiness
+- [ ] Implement comprehensive tests.
+- [ ] Add observability and logging.
+- [ ] Improve failure recovery.
+- [ ] Implement security hardening.
+- [ ] Deploy application.
+
+---
 
 ## Project Documentation
 
--   [PRD.md](PRD.md) --- product goals, target users, scope, acceptance
-    criteria, and metrics.
--   [ARCHITECTURE.md](ARCHITECTURE.md) --- system components, data
-    flows, and deployment architecture.
--   [DATABASE.md](DATABASE.md) --- logical schema, relationships,
-    indexes, and revision lifecycle.
--   [API.md](API.md) --- REST API contracts, errors, and authorization
-    requirements.
--   [SECURITY.md](SECURITY.md) --- threat model, mitigations, and
-    release checklist.
+| Document | Description |
+|---|---|
+| [PRD.md](docs/PRD.md) | Product requirements and scope |
+| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | System architecture and data flows |
+| [DATABASE.md](docs/DATABASE.md) | Database schema and relationships |
+| [API.md](docs/API.md) | REST API specifications |
+| [SECURITY.md](docs/SECURITY.md) | Security architecture and threat model |
+
+---
 
 ## Contributing
 
-Contributions and design feedback are welcome as implementation begins.
+Contributions, suggestions, and technical feedback are welcome.
 
 Before submitting a pull request:
 
-1.  Read the relevant architecture and security documentation.
-2.  Keep changes focused and explain the motivation.
-3.  Add or update tests for changed behavior.
-4.  Run the checks available in the repository.
-5.  Document configuration changes and database migrations.
-6.  Never include credentials, private source code, or real user data in
-    fixtures or logs.
+1. Understand the existing architecture.
+2. Keep changes focused.
+3. Follow established coding conventions.
+4. Add tests for new functionality.
+5. Update documentation when necessary.
+6. Never commit credentials or private repository data.
 
-For significant architecture changes, open an issue or design discussion
-before implementing the change.
+---
 
 ## License
 
-No license has been selected yet. Until a license is added to the
-repository, do not assume that the code is available for reuse,
-redistribution, or commercial use. Add a `LICENSE` file before
-publishing the project under an open-source license.
+No license has been selected yet.
+
+Until a LICENSE file is added, all rights remain reserved by the copyright holder. Do not assume the project is open-source or available for redistribution.
+
+---
+
+**Built with curiosity, engineering, and AI.**
+
+**RepoMind — Understand before you change.**
