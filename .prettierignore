@@ -1,0 +1,11 @@
+pnpm-lock.yaml
+repomind_documentation/docs/
+node_modules/
+dist/
+build/
+.turbo/
+server/ai/.venv/
+**/.pytest_cache/
+server/ai/.pytest_cache
+server/ai/.pytest_cache/**
+**/__pycache__/
