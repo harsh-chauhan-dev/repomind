@@ -7,6 +7,8 @@
   },
   "scripts": {
     "build": "turbo run build",
+    "db:migrate": "node database/migrate.mjs",
+    "db:test": "node database/tests/integration.mjs",
     "dev": "turbo run dev --parallel",
     "typecheck": "turbo run typecheck",
     "lint": "eslint .",
@@ -18,9 +20,11 @@
     "@eslint/js": "^9.17.0",
     "@types/node": "^22.10.5",
     "eslint": "^9.17.0",
+    "pg": "^8.13.1",
     "prettier": "^3.4.2",
     "turbo": "^2.3.3",
     "typescript": "^5.7.2",
-    "typescript-eslint": "^8.19.1"
+    "typescript-eslint": "^8.19.1",
+    "@types/pg": "^8.11.10"
   }
 }

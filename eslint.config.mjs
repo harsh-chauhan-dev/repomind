@@ -11,6 +11,7 @@ export default tseslint.config(
       '**/__pycache__/**',
     ],
   },
+  { languageOptions: { globals: { process: 'readonly' } } },
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
 );
