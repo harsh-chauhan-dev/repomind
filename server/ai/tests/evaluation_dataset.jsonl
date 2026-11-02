@@ -1,0 +1,2 @@
+{"id":"known-function","question":"What does answer return?","expected_citations":[{"file_path":"src/app.py","start_line":10,"end_line":20}],"answerable":true}
+{"id":"unknown-behavior","question":"What database migration strategy does the repository use?","expected_citations":[],"answerable":false}
